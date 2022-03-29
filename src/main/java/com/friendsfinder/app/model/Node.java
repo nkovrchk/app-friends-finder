@@ -13,7 +13,7 @@ public class Node {
 
     private int parent;
 
-    private UserData user;
+    private VKUser user;
 
     private Map<String, String[]> wordForms;
 

@@ -70,9 +70,9 @@ public class VKClient implements IVKClient {
         }
     }
 
-    public ArrayList<VKUser> getUserData (int[] userIds) throws JsonException {
+    public ArrayList<VKUser> getUserData (ArrayList<Integer> userIds) throws JsonException {
         var result = new ArrayList<VKUser>();
-        var ids = Arrays.stream(userIds).mapToObj(String::valueOf).reduce(String::concat).stream().collect(Collectors.joining(","));
+        var ids = userIds.stream().map(String::valueOf).reduce(String::concat).stream().collect(Collectors.joining(","));
 
         var url = this.apiMethodUri + "/users.get" +
                 "?v=" + this.version +
