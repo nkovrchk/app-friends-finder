@@ -1,7 +1,7 @@
 package com.friendsfinder.app.config;
 
-import com.friendsfinder.app.service.Session.SessionServiceImpl;
-import com.friendsfinder.app.service.VK.VKClient;
+import com.friendsfinder.app.service.session.SessionServiceImpl;
+import com.friendsfinder.app.service.vk.VKClientImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -13,7 +13,7 @@ public class VKFilterConfig {
 
     private final SessionServiceImpl sessionService;
 
-    private final VKClient vkClient;
+    private final VKClientImpl vkClient;
 
     @Bean
     public FilterRegistrationBean<SecurityServletFilter> filterRegistrationBean() {

@@ -1,4 +1,4 @@
-package com.friendsfinder.app.service.Session;
+package com.friendsfinder.app.service.session;
 
 import com.friendsfinder.app.model.AccessToken;
 

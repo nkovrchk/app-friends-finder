@@ -1,7 +1,7 @@
 package com.friendsfinder.app.config;
 
-import com.friendsfinder.app.service.Session.SessionServiceImpl;
-import com.friendsfinder.app.service.VK.VKClient;
+import com.friendsfinder.app.service.session.SessionServiceImpl;
+import com.friendsfinder.app.service.vk.VKClientImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -20,7 +20,7 @@ public class SecurityServletFilter extends HttpFilter {
 
     private final SessionServiceImpl sessionService;
 
-    private final VKClient vkClient;
+    private final VKClientImpl vkClient;
 
     private final Logger logger = Logger.getLogger(SecurityServletFilter.class.getName());
 

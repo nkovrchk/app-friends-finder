@@ -2,9 +2,9 @@ package com.friendsfinder.app.controller;
 
 import com.friendsfinder.app.exception.BusinessException;
 import com.friendsfinder.app.exception.JsonException;
-import com.friendsfinder.app.model.SessionAttribute;
-import com.friendsfinder.app.service.Session.SessionServiceImpl;
-import com.friendsfinder.app.service.VK.VKClient;
+import com.friendsfinder.app.model.enums.SessionAttribute;
+import com.friendsfinder.app.service.session.SessionServiceImpl;
+import com.friendsfinder.app.service.vk.VKClientImpl;
 import com.friendsfinder.app.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,35 +16,48 @@ import javax.servlet.http.HttpSession;
 import java.io.IOException;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
-    private final VKClient vkClient;
+
     private final SessionServiceImpl sessionService;
+
+    private final VKClientImpl vkClient;
+
     private final JsonUtils jsonUtils;
 
+    private final String clientUrl = "http://localhost:8080";
+
+    private void redirect (HttpServletResponse response, String url) {
+        response.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY);
+        response.setHeader("Location", url);
+        response.setHeader("Connection", "close");
+    }
+
+    @GetMapping("/login")
+    public void login(HttpServletResponse response, HttpSession session){
+        var token = sessionService.getToken(session);
+        var isValidToken = sessionService.isValidToken(token);
+
+        if(!isValidToken){
+            redirect(response, vkClient.getAuthUrl());
+            return;
+        }
+
+        vkClient.setAccessToken(token);
+        redirect(response,clientUrl + "/vk");
+    }
+
     @GetMapping("/token")
-    public void processCode(@RequestParam(name = "code") String code, HttpServletResponse response, HttpSession session) throws BusinessException, IOException, JsonException {
+    public void getToken(@RequestParam(name = "code") String code, HttpServletResponse response, HttpSession session) throws BusinessException, JsonException {
         var token = vkClient.retrieveToken(code);
         var serializedToken = jsonUtils.stringify(token);
 
         session.setAttribute(SessionAttribute.TOKEN.toString(), serializedToken);
 
-        response.sendRedirect("/api/v1/auth/login");
-    }
-
-    @GetMapping("/login")
-    public void login(HttpServletResponse response, HttpSession session) throws IOException{
-        var token = sessionService.getToken(session);
-
-        if(token == null){
-            response.sendRedirect(vkClient.getAuthUrl());
-            return;
-        }
-
         vkClient.setAccessToken(token);
 
-        response.sendRedirect("/vk");
+        redirect(response, clientUrl + "/vk");
     }
 
     @PostMapping("/check-token")
@@ -54,4 +67,5 @@ public class AuthController {
 
         return new ResponseEntity<>(isValid ? HttpStatus.OK : HttpStatus.FORBIDDEN);
     }
+
 }

@@ -8,10 +8,6 @@ public class BusinessExceptionFactory {
         return new BusinessException("Не удалось получить токен авторизации, code = " + code, ExceptionCode.B001);
     }
 
-    public static BusinessException failedToGetUser(int userId){
-        return new BusinessException("Не удалось получить данные пользователя, ID = " + userId, ExceptionCode.B002);
-    }
-
     public static BusinessException failedToGetIds(int userId){
         return new BusinessException("Не удалось получить идентификаторы друзей для пользователя ID = " + userId, ExceptionCode.B003);
     }
