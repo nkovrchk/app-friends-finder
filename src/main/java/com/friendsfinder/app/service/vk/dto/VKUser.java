@@ -1,9 +1,10 @@
-package com.friendsfinder.app.model;
+package com.friendsfinder.app.service.vk.dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @Data
 public class VKUser {
@@ -42,6 +43,9 @@ public class VKUser {
      */
     private String career;
 
+    private List<String> wall;
+
+    private List<String> groups;
 
     public VKUser (JsonNode jsonUser){
         var id = jsonUser.get("id").asInt();
@@ -68,7 +72,9 @@ public class VKUser {
             var careers = jsonUser.get("career");
 
             for(JsonNode career : careers) {
-                res.add(career.get("company").asText());
+                var company = career.get("company");
+
+                res.add(company != null ? company.asText() : "");
             }
 
             this.setCareer(String.join(", ", res));

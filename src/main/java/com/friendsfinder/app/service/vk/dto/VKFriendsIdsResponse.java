@@ -1,4 +1,4 @@
-package com.friendsfinder.app.model;
+package com.friendsfinder.app.service.vk.dto;
 
 import lombok.Data;
 

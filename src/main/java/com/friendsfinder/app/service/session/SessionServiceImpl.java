@@ -1,7 +1,7 @@
-package com.friendsfinder.app.service.Session;
+package com.friendsfinder.app.service.session;
 
 import com.friendsfinder.app.exception.JsonException;
-import com.friendsfinder.app.model.SessionAttribute;
+import com.friendsfinder.app.model.enums.SessionAttribute;
 import com.friendsfinder.app.model.AccessToken;
 import com.friendsfinder.app.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;

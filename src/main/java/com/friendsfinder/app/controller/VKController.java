@@ -1,14 +1,15 @@
 package com.friendsfinder.app.controller;
 
-import com.friendsfinder.app.exception.BusinessException;
-import com.friendsfinder.app.exception.JsonException;
+import com.friendsfinder.app.exception.VKException;
+import com.friendsfinder.app.model.Node;
 import com.friendsfinder.app.model.SearchParams;
-import com.friendsfinder.app.service.Graph.GraphServiceImpl;
-import com.friendsfinder.app.service.VK.VKClient;
+import com.friendsfinder.app.service.graph.GraphServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/v1/vk")
@@ -17,7 +18,7 @@ public class VKController {
     private final GraphServiceImpl graphService;
 
     @GetMapping("/graph")
-    public void getGraph () throws JsonException {
-        graphService.build(new SearchParams(1, 3));
+    public ArrayList<ArrayList<ArrayList<Node>>> getGraph () throws VKException {
+        return graphService.build(new SearchParams(2, 3));
     }
 }
