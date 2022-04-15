@@ -48,24 +48,9 @@ public class JsonUtils {
         catch(JsonProcessingException ex){
             throw JsonExceptionFactory.failedToParseJson();
         }
-
     }
 
-    public JsonNode readJsonFromUrl (String url) throws JsonException {
-        try{
-            return objectMapper.readTree(new URL(url));
-        }
-        catch (IOException ex){
-            throw JsonExceptionFactory.failedToReadJson(url);
-        }
-    }
-
-    public <T> T readValueFromUrl (String url, Class<T> dataType) throws JsonException {
-        try {
-            return objectMapper.readValue(new URL(url), dataType);
-        }
-        catch(IOException ex){
-            throw JsonExceptionFactory.failedToReadValue(url);
-        }
+    public JsonNode readJsonFromUrl (String url) throws IOException {
+        return objectMapper.readTree(new URL(url));
     }
 }

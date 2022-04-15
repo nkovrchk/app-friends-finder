@@ -1,19 +1,16 @@
 package com.friendsfinder.app.service.graph;
 
-import com.friendsfinder.app.exception.BusinessException;
+import com.friendsfinder.app.controller.dto.request.SearchPersonRequest;
+import com.friendsfinder.app.controller.dto.response.NodeDto;
 import com.friendsfinder.app.exception.VKException;
-import com.friendsfinder.app.exception.factory.BusinessExceptionFactory;
 import com.friendsfinder.app.model.Node;
-import com.friendsfinder.app.model.SearchParams;
 import com.friendsfinder.app.repository.GraphRepository;
 import com.friendsfinder.app.service.session.SessionServiceImpl;
 import com.friendsfinder.app.service.vk.VKClientImpl;
 import lombok.Data;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @Data
@@ -26,42 +23,47 @@ public class GraphServiceImpl implements IGraphService {
 
     private final Set<Integer> idsSet = new HashSet<>();
 
-    private SearchParams params;
+    private int depth;
 
-    public void updateNodes() {
+    private int width;
 
-    }
+    private ArrayList<ArrayList<ArrayList<Node>>> graph;
 
-    public void loadFromDatabase() {
-
-    }
-
-    public ArrayList<ArrayList<ArrayList<Node>>> build (SearchParams params) throws VKException {
-        this.setParams(params);
+    public ArrayList<ArrayList<ArrayList<Node>>> build (SearchPersonRequest params) throws VKException {
+        this.setWidth(params.getWidth());
+        this.setDepth(params.getDepth() + 1);
 
         var userId = vkClient.getUserId();
         var ids = new ArrayList<Integer>();
-        ids.add(userId);
-        var usersData = vkClient.getUserData(ids);
 
+        ids.add(userId);
+
+        var usersData = vkClient.getUserData(ids);
         var node = new Node(0, userId);
+
         node.setUser(usersData.get(0));
 
         var graph = new ArrayList<ArrayList<ArrayList<Node>>>();
-
         var rootLevel = new ArrayList<ArrayList<Node>>();
-
         var root = new ArrayList<Node>();
 
         root.add(node);
         rootLevel.add(root);
         graph.add(rootLevel);
 
-        for(int i = 1; i <= params.getDepth(); i++){
+        for(int i = 1; i <= width; i++){
             var graphIds = graph.get(i - 1);
             var listIds = new ArrayList<Integer>();
 
-            graphIds.forEach(l -> listIds.addAll(l.stream().map(Node::getUserId).toList()));
+            graphIds.forEach(l -> {
+                if(l == null){
+                    for(var idx = 0; idx < width; idx++)
+                        listIds.add(null);
+                }
+                else {
+                    listIds.addAll(l.stream().map(n -> n != null ? n.getUserId() : null).toList());
+                }
+            });
 
             var level = getLevel(listIds, i);
             graph.add(level);
@@ -69,72 +71,101 @@ public class GraphServiceImpl implements IGraphService {
 
         idsSet.clear();
 
+        this.graph = graph;
+
         return graph;
     }
 
-    /**
-     * Получает уровень с нодами для дерева
-     * 1. Получаем из запроса ширину уровня
-     * 2. Для каждого родительского id получаем id друзей
-     * 3. Если кол-во id == 0, значит пропускаем итерацию
-     * 4. Получаем информацию о друзьях и формируем ноды
-     * 5. Добавляем ноды в список - это все друзья одного пользователя
-     */
-    private ArrayList<ArrayList<Node>> getLevel (ArrayList<Integer> ids, int depth) {
-        var count = this.getParams().getWidth();
+    public List<NodeDto> getChildren (int graphDepth, int levelIndex, int childIndex) {
+        var pos = width * levelIndex + childIndex;
+        var tuple = graph.get(graphDepth).get(pos);
 
+        if(tuple == null)
+            return null;
+
+        var nodes = new ArrayList<NodeDto>();
+
+        for(var i = 0; i < tuple.size(); i++){
+            var node = tuple.get(i);
+
+            if(node == null)
+                continue;
+
+            var nodeDto = NodeDto.getNodeDto(node);
+            var children = graphDepth < depth ? getChildren(graphDepth + 1, pos, i) : null;
+
+            nodeDto.setChildren(children);
+
+            nodes.add(nodeDto);
+        }
+
+        return nodes;
+    }
+
+    public NodeDto traverse (){
+        var root = NodeDto.getNodeDto(graph.get(0).get(0).get(0));
+
+        var children = this.getChildren(1, 0, 0);
+
+        root.setChildren(children);
+
+        return root;
+    }
+
+    private ArrayList<ArrayList<Node>> getLevel (ArrayList<Integer> ids, int depth) {
         var result = new ArrayList<ArrayList<Node>>();
 
         ids.forEach(parentId -> {
-            try {
-                var friendsIds = getFriendsIds(parentId, count);
+            if(parentId == null){
+                result.add(null);
+            }
+            else {
+                try {
+                    var friendsIds = getFriendsIds(parentId, width);
 
-                if(friendsIds.size() == 0)
-                    return;
+                    if(friendsIds.size() == 0)
+                        return;
 
-                var users = vkClient.getUserData(friendsIds);
-                var nodes = users.stream()
-                        .map(user -> {
-                            var userId = user.getId();
+                    var users = vkClient.getUserData(friendsIds);
 
-                            try {
+                    var nodes = users.stream()
+                            .map(user -> {
+                                var userId = user.getId();
+
                                 var wall = vkClient.getUserWall(userId);
                                 var groups = vkClient.getUserGroups(userId);
 
                                 user.setWall(wall);
                                 user.setGroups(groups);
 
-                            } catch (VKException e) {
-                                e.printStackTrace();
-                            }
+                                var node = new Node(depth, userId, parentId);
 
-                            var node = new Node(depth, userId, parentId);
+                                node.setUser(user);
 
-                            node.setUser(user);
+                                return node;
+                            })
+                            .toList();
 
-                            return node;
-                        })
-                        .toList();
+                    var arrayNodes = new ArrayList<>(nodes);
 
-                result.add(new ArrayList<>(nodes));
-            } catch (VKException e) {
-                e.printStackTrace();
+                    var difference = width - arrayNodes.size();
+
+                    for(var i = 0; i < difference; i++) arrayNodes.add(null);
+
+                    result.add(new ArrayList<>(arrayNodes));
+                } catch (VKException e) {
+                    e.printStackTrace();
+                }
             }
         });
+
+        var difference = ids.size() - result.size();
+
+        for(var i = 0; i < difference; i++) result.add(null);
 
         return result;
     }
 
-    /**
-     * 1. Получить ids
-     * 2. Сопоставить с сетом
-     * 3. Отфильтровать дубликаты
-     * 4. Проверяем результат
-     * 4.1 если result + filtered < count тогда добавляем и ищем заново
-     * 4.2 если result + filtered >= count тогда завершаем цикл и возвращаем result
-     * 4.3 если после запроса кол-во ids < count, значит мы дошли до конца списка друзей
-     * и не сможем получить новые данные, тогда flag = false и возвращаем то, что смогли получить
-     */
     private ArrayList<Integer> getFriendsIds (int userId, int count) {
         var response = vkClient.getFriendsIds(userId);
 

@@ -1,15 +1,11 @@
 package com.friendsfinder.app.controller;
 
+import com.friendsfinder.app.controller.dto.request.SearchPersonRequest;
+import com.friendsfinder.app.controller.dto.response.NodeDto;
 import com.friendsfinder.app.exception.VKException;
-import com.friendsfinder.app.model.Node;
-import com.friendsfinder.app.model.SearchParams;
 import com.friendsfinder.app.service.graph.GraphServiceImpl;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.util.ArrayList;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/vk")
@@ -17,8 +13,10 @@ import java.util.ArrayList;
 public class VKController {
     private final GraphServiceImpl graphService;
 
-    @GetMapping("/graph")
-    public ArrayList<ArrayList<ArrayList<Node>>> getGraph () throws VKException {
-        return graphService.build(new SearchParams(2, 3));
+    @PostMapping("/graph")
+    public NodeDto getGraph (@RequestBody SearchPersonRequest searchRequest) throws VKException {
+        graphService.build(searchRequest);
+
+        return graphService.traverse();
     }
 }

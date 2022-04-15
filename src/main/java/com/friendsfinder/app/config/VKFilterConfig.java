@@ -10,7 +10,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @RequiredArgsConstructor
 public class VKFilterConfig {
-
     private final SessionServiceImpl sessionService;
 
     private final VKClientImpl vkClient;

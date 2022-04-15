@@ -47,6 +47,8 @@ public class VKUser {
 
     private List<String> groups;
 
+    private String photo;
+
     public VKUser (JsonNode jsonUser){
         var id = jsonUser.get("id").asInt();
         var firstName = jsonUser.get("first_name").asText();
@@ -59,10 +61,12 @@ public class VKUser {
         var about = jsonUser.has("about") ? jsonUser.get("about").asText() : "";
         var interests = jsonUser.has("interests") ? jsonUser.get("interests").asText() : "";
         var city = jsonUser.has("city") ? jsonUser.get("city").get("title").asText() : "";
+        var photo = jsonUser.has("photo_200") ? jsonUser.get("photo_200").asText() : "";
 
         this.setAbout(about);
         this.setInterests(interests);
         this.setCity(city);
+        this.setPhoto(photo);
 
         if(!jsonUser.has("career")){
             this.setCareer("");
