@@ -64,6 +64,21 @@
 			<scope>provided</scope>
 		</dependency>
 
+		<dependency>
+			<groupId>com.github.jalexpr.tawt</groupId>
+			<artifactId>jmorfsdk</artifactId>
+			<version>${version.tawt}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>ru.textanalysis.tawt</groupId>
+					<artifactId>morphological-structures</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>ru.textanalysis.tawt</groupId>
+					<artifactId>morphological-dictionary</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 	</dependencies>
 	<build>
 		<plugins>

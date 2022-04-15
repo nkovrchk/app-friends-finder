@@ -2,19 +2,17 @@ package com.friendsfinder.app.service.vk;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.friendsfinder.app.exception.BusinessException;
-import com.friendsfinder.app.exception.JsonException;
 import com.friendsfinder.app.exception.VKException;
 import com.friendsfinder.app.exception.factory.BusinessExceptionFactory;
 import com.friendsfinder.app.exception.factory.VKExceptionFactory;
 import com.friendsfinder.app.model.*;
-import com.friendsfinder.app.service.vk.dto.VKAuthResponse;
-import com.friendsfinder.app.service.vk.dto.VKFriendsIdsResponse;
 import com.friendsfinder.app.service.vk.dto.VKUser;
 import com.friendsfinder.app.utils.JsonUtils;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -41,17 +39,62 @@ public class VKClientImpl implements IVKClient {
     private final Logger logger = Logger.getLogger(VKClientImpl.class.getName());
     private final JsonUtils jsonUtils;
 
-    public String getAuthUrl (){
+    public String getAuthUrl() {
         return this.authUri +
                 "?client_id=" + this.appId +
                 "&redirect_uri=" + this.redirectUri +
                 "&scope=friends,email,groups";
     }
 
-    public void setAccessToken (AccessToken token) {
+    public void setAccessToken(AccessToken token) {
         this.accessToken = token.getToken();
         this.userId = token.getUserId();
     }
+
+    private JsonNode getData(String url) throws VKException {
+        var hasTried = false;
+        var flag = true;
+
+        JsonNode response = null;
+
+        logger.log(Level.INFO, String.format("Request: %s", url));
+
+        do {
+            try {
+                var json = jsonUtils.readJsonFromUrl(url);
+
+                if (json.has("error")) {
+                    var error = json.get("error");
+                    var errorCode = error.get("error_code").asInt();
+                    var errorMessage = error.get("error_msg").asText();
+
+                    if (errorCode == 6) {
+                        if (!hasTried) {
+                            hasTried = true;
+                            logger.log(Level.WARNING, "Request timeout");
+                            Thread.sleep(1500);
+                            continue;
+                        } else {
+                            throw VKExceptionFactory.requestTimeout(url);
+                        }
+                    } else {
+                        throw VKExceptionFactory.responseHasErrors(url, errorMessage);
+                    }
+                }
+
+                flag = false;
+
+                response = json;
+            } catch (IOException | InterruptedException e) {
+                throw VKExceptionFactory.failedToReadJson(e.getMessage());
+            }
+        }
+        while (flag);
+
+
+        return response;
+    }
+
 
     public AccessToken retrieveToken(String code) throws BusinessException {
         var authUrl = accessTokenUri +
@@ -61,53 +104,44 @@ public class VKClientImpl implements IVKClient {
                 "&code=" + code;
 
         try {
-            var response = jsonUtils.readValueFromUrl(authUrl, VKAuthResponse.class);
-            var authToken = new AccessToken(new Date(), response.expires_in, response.access_token, response.user_id);
+            var response = getData(authUrl);
 
-            logger.log(Level.INFO, "Успешно получен токен пользователя: " + this.accessToken);
+            var createdOn = new Date();
+            var expiresIn = response.get("expires_in").asInt();
+            var accessToken = response.get("access_token").asText();
+            var userId = response.get("user_id").asInt();
+
+            var authToken = new AccessToken(createdOn, expiresIn, accessToken, userId);
+
+            logger.log(Level.INFO, String.format("Успешно получен токен пользователя: %s", this.accessToken));
 
             return authToken;
-        }
-        catch (NullPointerException | JsonException err){
+        } catch (VKException err) {
             throw BusinessExceptionFactory.failedToRetrieveToken(code);
         }
     }
 
-    private JsonNode read (String url) throws VKException {
-        try{
-            var json = jsonUtils.readJsonFromUrl(url);
-
-            if(json.has("error")){
-                var error = json.get("error").get("error_msg").asText();
-
-                throw VKExceptionFactory.responseHasErrors(error);
-            }
-
-            return json.get("response");
-        }
-        catch (JsonException e){
-            throw VKExceptionFactory.failedToReadJson(e.getMessage());
-        }
-    }
-
-    public List<VKUser> getUserData (List<Integer> userIds) throws VKException {
+    public List<VKUser> getUserData(List<Integer> userIds) throws VKException {
         var result = new ArrayList<VKUser>();
         var ids = userIds.stream().map(String::valueOf).collect(Collectors.joining(","));
-        var url = this.apiMethodUri + "/users.get" +
-                "?v=" + this.version +
+        var url = apiMethodUri + "/users.get" +
+                "?v=" + version +
                 "&user_ids=" + ids +
-                "&access_token=" + this.accessToken +
-                "&fields=about,career,interests,city";
+                "&access_token=" + accessToken +
+                "&fields=about,career,interests,city,photo_200";
 
 
-        var items = this.read(url);
+        var items = getData(url).get("response");
 
-        if(!items.isArray())
+        if (!items.isArray())
             return result;
 
-        for(JsonNode item : items){
-            if(item.has("deactivated") || (item.has("is_closed") && item.get("is_closed").asBoolean())){
-                logger.log(Level.INFO, "Пользователь " + item.get("id") + " заблокирован или скрыл профиль");
+        for (JsonNode item : items) {
+            var hasAccess = item.has("can_access_closed") && item.get("can_access_closed").asBoolean();
+            var isDeactivated = item.has("deactivated") && item.get("deactivated").asBoolean();
+
+            if (isDeactivated || !hasAccess) {
+                logger.log(Level.WARNING, String.format("Пользователь ID: %s скрыл или заблокировал профиль", item.get("id")));
                 continue;
             }
 
@@ -119,7 +153,7 @@ public class VKClientImpl implements IVKClient {
         return result;
     }
 
-    public List<Integer> getFriendsIds (int userId) {
+    public List<Integer> getFriendsIds(int userId) {
         var result = new ArrayList<Integer>();
         var url = this.apiMethodUri + "/friends.get" +
                 "?v=" + this.version +
@@ -127,48 +161,53 @@ public class VKClientImpl implements IVKClient {
                 "&access_token=" + this.accessToken +
                 "&order=hints";
 
-        try{
-            var response = jsonUtils.readValueFromUrl(url, VKFriendsIdsResponse.class);
+        try {
+            var items = getData(url).get("response").get("items");
 
-            result.addAll(response.getResponse().getItems());
+            items.forEach(r -> result.add(r.asInt()));
+
             return result;
-        }
-        catch (JsonException e){
-            logger.log(Level.SEVERE, "Не удалось получить ID друзей для пользователя с ID = " + userId);
+        } catch (VKException e) {
+            logger.log(Level.SEVERE, String.format("Не удалось получить ID друзей для пользователя %s", userId));
             return result;
         }
     }
 
-    public List<String> getUserWall (int ownerId) throws VKException {
+    public List<String> getUserWall(int ownerId) {
+        var wall = new ArrayList<String>();
         var url = this.apiMethodUri + "/wall.get" +
                 "?v=" + this.version +
                 "&owner_id=" + ownerId +
                 "&count=10" +
                 "&access_token=" + this.accessToken;
 
-        var json = this.read(url);
-        var results = new ArrayList<String>();
-        var items = json.get("items");
+        try {
+            var json = this.getData(url);
+            var items = json.get("response").get("items");
 
-        for(var node : items){
-            var post = node.get("text").asText();
+            for (var node : items) {
+                var post = node.get("text").asText();
 
-            if(!post.isEmpty()) results.add(post);
+                if (!post.isEmpty()) wall.add(post);
 
-            if(node.has("copy_history")){
-                var copyHistory = node.get("copy_history");
+                if (node.has("copy_history")) {
+                    var copyHistory = node.get("copy_history");
 
-                for(var copy : copyHistory){
-                    var repost = copy.get("text").asText();
-                    if(!repost.isEmpty()) results.add(repost);
+                    for (var copy : copyHistory) {
+                        var repost = copy.get("text").asText();
+                        if (!repost.isEmpty()) wall.add(repost);
+                    }
                 }
             }
+        } catch (VKException e) {
+            return wall;
         }
 
-        return results;
+        return wall;
     }
 
-    public List<String> getUserGroups (int userId) throws VKException {
+    public List<String> getUserGroups(int userId) {
+        var groups = new ArrayList<String>();
         var url = this.apiMethodUri + "/groups.get" +
                 "?v=" + this.version +
                 "&user_id=" + userId +
@@ -177,26 +216,29 @@ public class VKClientImpl implements IVKClient {
                 "&count=10" +
                 "&fields=activity,description";
 
-        var json = this.read(url);
-        var result = new ArrayList<String>();
-        var items = json.get("items");
+        try {
+            var json = this.getData(url);
+            var items = json.get("response").get("items");
 
-        for(var node : items) {
-            var name = node.get("name").asText();
+            for (var node : items) {
+                var name = node.get("name").asText();
 
-            result.add(name);
+                groups.add(name);
 
-            if (node.has("description")) {
-                var description = node.get("description").asText();
-                if (!description.isEmpty()) result.add(description.replace("\n", " "));
+                if (node.has("description")) {
+                    var description = node.get("description").asText();
+                    if (!description.isEmpty()) groups.add(description.replace("\n", " "));
+                }
+
+                if (node.has("activity")) {
+                    var activity = node.get("activity").asText();
+                    if (!activity.isEmpty()) groups.add(activity);
+                }
             }
-
-            if (node.has("activity")) {
-                var activity = node.get("activity").asText();
-                if (!activity.isEmpty()) result.add(activity);
-            }
+        } catch (VKException e) {
+            return groups;
         }
 
-        return result;
+        return groups;
     }
 }

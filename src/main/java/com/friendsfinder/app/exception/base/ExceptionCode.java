@@ -11,4 +11,5 @@ public enum ExceptionCode {
     J004,
     V001,
     V002,
+    V003,
 }

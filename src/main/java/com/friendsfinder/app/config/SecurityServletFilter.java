@@ -17,7 +17,6 @@ import java.util.logging.Logger;
 @Component
 @RequiredArgsConstructor
 public class SecurityServletFilter extends HttpFilter {
-
     private final SessionServiceImpl sessionService;
 
     private final VKClientImpl vkClient;
