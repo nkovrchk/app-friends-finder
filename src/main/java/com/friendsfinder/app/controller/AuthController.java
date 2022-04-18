@@ -45,7 +45,7 @@ public class AuthController {
         }
 
         vkClient.setAccessToken(token);
-        redirect(response,clientUrl + "/vk");
+        redirect(response,clientUrl + "/graph");
     }
 
     @GetMapping("/token")
@@ -57,7 +57,7 @@ public class AuthController {
 
         vkClient.setAccessToken(token);
 
-        redirect(response, clientUrl + "/vk");
+        redirect(response, clientUrl + "/graph");
     }
 
     @PostMapping("/check-token")
@@ -67,5 +67,4 @@ public class AuthController {
 
         return new ResponseEntity<>(isValid ? HttpStatus.OK : HttpStatus.FORBIDDEN);
     }
-
 }

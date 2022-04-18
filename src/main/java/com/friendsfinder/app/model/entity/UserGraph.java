@@ -9,7 +9,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "graph")
-public class Graph extends BaseEntity {
+public class UserGraph extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
