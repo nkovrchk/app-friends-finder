@@ -20,6 +20,8 @@ public class NodeDto {
 
         private boolean isMatch;
 
+        private boolean isLinked;
+
         private String photo;
 
     }

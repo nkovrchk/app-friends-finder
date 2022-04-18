@@ -52,9 +52,43 @@ public class VKClientImpl implements IVKClient {
     }
 
     private JsonNode getData(String url) throws VKException {
-        var hasTried = false;
-        var flag = true;
+        var triesLeft = 3;
+        JsonNode response = null;
 
+        while(triesLeft > 0){
+            try {
+                var json = jsonUtils.readJsonFromUrl(url);
+
+                if (json.has("error")) {
+                    var error = json.get("error");
+                    var errorCode = error.get("error_code").asInt();
+                    var errorMessage = error.get("error_msg").asText();
+
+                    if (errorCode == 6) {
+                        if (triesLeft > 1) {
+                            triesLeft--;
+                            logger.log(Level.WARNING, "Request timeout, tries left: " + triesLeft);
+                            Thread.sleep(1000);
+
+                            continue;
+                        }
+                        else {
+                            throw VKExceptionFactory.requestTimeout(url);
+                        }
+                    }
+                    else {
+                        throw VKExceptionFactory.responseHasErrors(url, errorMessage);
+                    }
+                }
+                response = json;
+
+                triesLeft = 0;
+            } catch (IOException | InterruptedException e) {
+                throw VKExceptionFactory.failedToReadJson(e.getMessage());
+            }
+        }
+
+        /*
         JsonNode response = null;
 
         logger.log(Level.INFO, String.format("Request: %s", url));
@@ -90,6 +124,8 @@ public class VKClientImpl implements IVKClient {
             }
         }
         while (flag);
+
+         */
 
 
         return response;

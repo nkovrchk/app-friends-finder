@@ -1,8 +1,8 @@
 package com.friendsfinder.app.service.graph;
 
 import com.friendsfinder.app.controller.dto.request.SearchPersonRequest;
-import com.friendsfinder.app.controller.dto.response.NodeDto;
 import com.friendsfinder.app.exception.VKException;
+import com.friendsfinder.app.model.Graph;
 import com.friendsfinder.app.model.Node;
 import com.friendsfinder.app.repository.GraphRepository;
 import com.friendsfinder.app.service.session.SessionServiceImpl;
@@ -29,9 +29,9 @@ public class GraphServiceImpl implements IGraphService {
 
     private ArrayList<ArrayList<ArrayList<Node>>> graph;
 
-    public ArrayList<ArrayList<ArrayList<Node>>> build (SearchPersonRequest params) throws VKException {
+    public Graph build (SearchPersonRequest params) throws VKException {
         this.setWidth(params.getWidth());
-        this.setDepth(params.getDepth() + 1);
+        this.setDepth(params.getDepth() - 1);
 
         var userId = vkClient.getUserId();
         var ids = new ArrayList<Integer>();
@@ -51,119 +51,93 @@ public class GraphServiceImpl implements IGraphService {
         rootLevel.add(root);
         graph.add(rootLevel);
 
-        for(int i = 1; i <= width; i++){
-            var graphIds = graph.get(i - 1);
-            var listIds = new ArrayList<Integer>();
+        for(int i = 1; i <= depth; i++){
+            var listIds =  getParentIds(graph.get(i - 1));
 
-            graphIds.forEach(l -> {
-                if(l == null){
-                    for(var idx = 0; idx < width; idx++)
-                        listIds.add(null);
-                }
-                else {
-                    listIds.addAll(l.stream().map(n -> n != null ? n.getUserId() : null).toList());
-                }
-            });
-
-            var level = getLevel(listIds, i);
+            var level = getLevel(listIds);
             graph.add(level);
         }
 
         idsSet.clear();
 
-        this.graph = graph;
-
-        return graph;
+        return new Graph(graph, width, depth);
     }
 
-    public List<NodeDto> getChildren (int graphDepth, int levelIndex, int childIndex) {
-        var pos = width * levelIndex + childIndex;
-        var tuple = graph.get(graphDepth).get(pos);
+    private ArrayList<Integer> getParentIds (ArrayList<ArrayList<Node>> level){
+        var parentIds = new ArrayList<Integer>();
 
-        if(tuple == null)
-            return null;
+        level.forEach(tuple -> {
+            if(tuple == null)
+                for(var i = 0; i < width; i++) parentIds.add(null);
 
-        var nodes = new ArrayList<NodeDto>();
-
-        for(var i = 0; i < tuple.size(); i++){
-            var node = tuple.get(i);
-
-            if(node == null)
-                continue;
-
-            var nodeDto = NodeDto.getNodeDto(node);
-            var children = graphDepth < depth ? getChildren(graphDepth + 1, pos, i) : null;
-
-            nodeDto.setChildren(children);
-
-            nodes.add(nodeDto);
-        }
-
-        return nodes;
-    }
-
-    public NodeDto traverse (){
-        var root = NodeDto.getNodeDto(graph.get(0).get(0).get(0));
-
-        var children = this.getChildren(1, 0, 0);
-
-        root.setChildren(children);
-
-        return root;
-    }
-
-    private ArrayList<ArrayList<Node>> getLevel (ArrayList<Integer> ids, int depth) {
-        var result = new ArrayList<ArrayList<Node>>();
-
-        ids.forEach(parentId -> {
-            if(parentId == null){
-                result.add(null);
-            }
-            else {
-                try {
-                    var friendsIds = getFriendsIds(parentId, width);
-
-                    if(friendsIds.size() == 0)
-                        return;
-
-                    var users = vkClient.getUserData(friendsIds);
-
-                    var nodes = users.stream()
-                            .map(user -> {
-                                var userId = user.getId();
-
-                                var wall = vkClient.getUserWall(userId);
-                                var groups = vkClient.getUserGroups(userId);
-
-                                user.setWall(wall);
-                                user.setGroups(groups);
-
-                                var node = new Node(depth, userId, parentId);
-
-                                node.setUser(user);
-
-                                return node;
-                            })
-                            .toList();
-
-                    var arrayNodes = new ArrayList<>(nodes);
-
-                    var difference = width - arrayNodes.size();
-
-                    for(var i = 0; i < difference; i++) arrayNodes.add(null);
-
-                    result.add(new ArrayList<>(arrayNodes));
-                } catch (VKException e) {
-                    e.printStackTrace();
-                }
-            }
+            else
+                parentIds.addAll(tuple.stream().map(node -> node != null ? node.getUserId() : null).toList());
         });
 
-        var difference = ids.size() - result.size();
+        return parentIds;
+    }
 
-        for(var i = 0; i < difference; i++) result.add(null);
+    private ArrayList<Node> getChildrenNodes (Integer parentId) {
+        if(parentId == null)
+            return null;
 
-        return result;
+        var tuple = new ArrayList<Node>();
+
+        var childrenIds = getFriendsIds(parentId, width);
+
+        if(childrenIds.size() == 0)
+            return null;
+
+        try{
+            var users = vkClient.getUserData(childrenIds);
+
+            var nodes = users.stream()
+                    .map(user -> {
+                        var userId = user.getId();
+
+                        var wall = vkClient.getUserWall(userId);
+                        var groups = vkClient.getUserGroups(userId);
+
+                        user.setWall(wall);
+                        user.setGroups(groups);
+
+                        var node = new Node(depth, userId, parentId);
+
+                        node.setUser(user);
+
+                        return node;
+                    })
+                    .toList();
+
+            var arrayNodes = new ArrayList<>(nodes);
+
+            tuple.addAll(arrayNodes);
+        }
+        catch (VKException ex){
+            return null;
+        }
+
+        var difference = width - tuple.size();
+
+        for(var i = 0; i < difference; i++) tuple.add(null);
+
+        return tuple;
+    }
+
+    private ArrayList<ArrayList<Node>> getLevel (ArrayList<Integer> ids) {
+        var level = new ArrayList<ArrayList<Node>>();
+
+        ids.forEach(parentId -> {
+            var children = getChildrenNodes(parentId);
+
+            level.add(children);
+        });
+
+        var difference = ids.size() - level.size();
+
+        for(var i = 0; i < difference; i++) level.add(null);
+
+        return level;
     }
 
     private ArrayList<Integer> getFriendsIds (int userId, int count) {
@@ -176,10 +150,7 @@ public class GraphServiceImpl implements IGraphService {
 
         var result = filteredIds.stream().limit(count).toList();
 
-        // Добавляем новые ID в сет
         idsSet.addAll(result);
-
-        // Записываем результат
 
         return new ArrayList<>(result);
     }
