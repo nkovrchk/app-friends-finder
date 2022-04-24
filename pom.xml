@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.friendsfinder</groupId>
 	<artifactId>app-friends-finder</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.0</version>
 	<name>app-friends-finder</name>
 	<description>FriendsFinder Web Application</description>
 	<properties>
@@ -65,19 +65,15 @@
 		</dependency>
 
 		<dependency>
-			<groupId>com.github.jalexpr.tawt</groupId>
+			<groupId>com.vladmihalcea</groupId>
+			<artifactId>hibernate-types-52</artifactId>
+			<version>2.16.1</version>
+		</dependency>
+
+		<dependency>
+			<groupId>ru.textanalysis.tawt</groupId>
 			<artifactId>jmorfsdk</artifactId>
-			<version>${version.tawt}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>ru.textanalysis.tawt</groupId>
-					<artifactId>morphological-structures</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>ru.textanalysis.tawt</groupId>
-					<artifactId>morphological-dictionary</artifactId>
-				</exclusion>
-			</exclusions>
+			<version>2.11.0</version>
 		</dependency>
 	</dependencies>
 	<build>

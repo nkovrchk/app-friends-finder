@@ -1,9 +1,6 @@
 package com.friendsfinder.app.model;
 
-import com.friendsfinder.app.service.vk.dto.VKUser;
 import lombok.Data;
-
-import java.util.Map;
 
 @Data
 public class Node {
@@ -14,18 +11,12 @@ public class Node {
 
     private int parent;
 
-    private VKUser user;
+    private User user;
 
-    private Map<String, String[]> wordForms;
+    private WordForms wordForms = new WordForms();
 
     public Node (int depth, int userId){
         this.depth = depth;
         this.userId = userId;
-    }
-
-    public Node (int depth, int userId, int parent) {
-        this.depth = depth;
-        this.userId = userId;
-        this.parent = parent;
     }
 }

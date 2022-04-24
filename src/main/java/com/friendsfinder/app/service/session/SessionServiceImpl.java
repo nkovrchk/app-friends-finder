@@ -1,9 +1,10 @@
 package com.friendsfinder.app.service.session;
 
-import com.friendsfinder.app.exception.JsonException;
+import com.friendsfinder.app.model.entity.Token;
 import com.friendsfinder.app.model.enums.SessionAttribute;
-import com.friendsfinder.app.model.AccessToken;
-import com.friendsfinder.app.utils.JsonUtils;
+import com.friendsfinder.app.service.vk.VKClientImpl;
+import com.friendsfinder.app.service.vk.dto.VKAccessToken;
+import com.friendsfinder.app.repository.TokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,39 +16,94 @@ import java.util.logging.Logger;
 @Service
 @RequiredArgsConstructor
 public class SessionServiceImpl implements ISessionService {
-
-    private final JsonUtils jsonUtils;
     private final Logger logger = Logger.getLogger(SessionServiceImpl.class.getName());
 
-    public AccessToken getToken (HttpSession session) {
-        var token = (String) session.getAttribute(SessionAttribute.TOKEN.toString());
+    private final HttpSession session;
+    private final TokenRepository tokenRepository;
 
-        if(token == null)
-            return null;
+    private final VKClientImpl vkClient;
 
-        try{
-            var accessToken = jsonUtils.parse(token, AccessToken.class);
-
-            logger.log(Level.INFO, "Успешно получен токен из сессии: " + accessToken.getToken());
-
-            return accessToken;
-        }
-        catch (JsonException je){
-            logger.log(Level.SEVERE, "Произошла ошибка при попытке получить токен из сессии");
-        }
-
-        return null;
+    public Integer getUserId (){
+        return (Integer) session.getAttribute(SessionAttribute.USER_ID.name());
     }
 
-    public boolean isValidToken(AccessToken token) {
-        if(token == null)
-            return false;
+    public void setToken (VKAccessToken accessToken) {
+        var userId = accessToken.getUserId();
+        var userToken = accessToken.getToken();
+        var expiresIn = accessToken.getExpiresIn();
+        var createdOn = accessToken.getCreatedOn();
 
-        var today = new Date();
-        var createdOn = token.getCreatedOn();
-        var expiresIn = token.getExpiresIn() * 1000L;
-        var expireDate = new Date(today.getTime() + expiresIn);
+        var existingToken = tokenRepository.findById(userId);
 
-        return today.after(createdOn) && today.before(expireDate);
+        if(existingToken.isPresent()){
+            var tokenRecord = existingToken.get();
+
+            tokenRecord.setAccessToken(userToken);
+            tokenRecord.setCreationDate(createdOn);
+
+            tokenRepository.save(tokenRecord);
+        }
+        else {
+            var newToken = new Token();
+
+            newToken.setUserId(userId);
+            newToken.setExpiresIn(expiresIn);
+            newToken.setAccessToken(userToken);
+            newToken.setCreationDate(createdOn);
+
+            tokenRepository.save(newToken);
+        }
+
+        session.setAttribute(SessionAttribute.USER_ID.name(), userId);
+        vkClient.setAccessToken(userToken);
+    }
+
+    public Token getValidToken () {
+        if(session.isNew())
+            return null;
+
+        var userId = getUserId();
+
+        if(userId == null)
+            return null;
+
+        var tokenRecord = tokenRepository.findById(userId);
+
+        if(tokenRecord.isEmpty())
+            return null;
+
+        var token = tokenRecord.get();
+        var expiresIn = token.getExpiresIn();
+        var createdOn = token.getCreationDate();
+
+        var now = new Date();
+        var expirationDate = new Date(createdOn.getTime() + expiresIn * 1000L);
+
+        var isValid = now.after(createdOn) && now.before(expirationDate);
+
+        if(!isValid){
+            tokenRepository.deleteById(userId);
+
+            return null;
+        }
+
+        logger.log(Level.INFO, "Успешно получен токен из БД: " + token.getAccessToken());
+
+        return token;
+    }
+
+    public void logout (){
+        var userId = getUserId();
+
+        if(userId != null){
+            var tokenRecord = tokenRepository.findById(userId);
+
+            if(tokenRecord.isPresent())
+                tokenRepository.deleteById(userId);
+
+            logger.log(Level.INFO, String.format("Пользователь %s вышел из сессии", userId));
+        }
+
+        session.invalidate();
     }
 }

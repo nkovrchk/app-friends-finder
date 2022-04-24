@@ -29,16 +29,16 @@ public class SecurityServletFilter extends HttpFilter {
 
         logger.log(Level.INFO, "Обработка запроса — " + request.getMethod() + ": " + request.getRequestURI());
 
-        var token = sessionService.getToken(session);
-        var isValidToken = sessionService.isValidToken(token);
 
-        if(token == null || !isValidToken){
+        var token = sessionService.getValidToken();
+
+        if(token == null){
             logger.log(Level.SEVERE, "Not authorized");
             response.setStatus(401);
             return;
         }
 
-        vkClient.setAccessToken(token);
+        vkClient.setAccessToken(token.getAccessToken());
 
         chain.doFilter(request, response);
     }

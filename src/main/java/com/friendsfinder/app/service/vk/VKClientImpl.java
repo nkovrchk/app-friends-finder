@@ -5,8 +5,8 @@ import com.friendsfinder.app.exception.BusinessException;
 import com.friendsfinder.app.exception.VKException;
 import com.friendsfinder.app.exception.factory.BusinessExceptionFactory;
 import com.friendsfinder.app.exception.factory.VKExceptionFactory;
-import com.friendsfinder.app.model.*;
-import com.friendsfinder.app.service.vk.dto.VKUser;
+import com.friendsfinder.app.model.User;
+import com.friendsfinder.app.service.vk.dto.VKAccessToken;
 import com.friendsfinder.app.utils.JsonUtils;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
@@ -25,7 +26,6 @@ import java.util.stream.Collectors;
 public class VKClientImpl implements IVKClient {
     private final String appId = "8044534";
     private final String clientSecret = "KSEH55wukhHmHMyAgKSl";
-
     private final String redirectUri = "http://localhost:8081/auth/token";
     private final String authUri = "https://oauth.vk.com/authorize";
     private final String accessTokenUri = "https://oauth.vk.com/access_token";
@@ -33,8 +33,6 @@ public class VKClientImpl implements IVKClient {
     private final String version = "5.131";
 
     private String accessToken;
-    @Getter
-    private int userId;
 
     private final Logger logger = Logger.getLogger(VKClientImpl.class.getName());
     private final JsonUtils jsonUtils;
@@ -46,20 +44,19 @@ public class VKClientImpl implements IVKClient {
                 "&scope=friends,email,groups";
     }
 
-    public void setAccessToken(AccessToken token) {
-        this.accessToken = token.getToken();
-        this.userId = token.getUserId();
+    public void setAccessToken(String token) {
+        this.accessToken = token;
     }
 
     private JsonNode getData(String url) throws VKException {
-        var triesLeft = 3;
+        var triesLeft = 4;
         JsonNode response = null;
 
         while(triesLeft > 0){
             try {
                 var json = jsonUtils.readJsonFromUrl(url);
 
-                if (json.has("error")) {
+                 if (json.has("error")) {
                     var error = json.get("error");
                     var errorCode = error.get("error_code").asInt();
                     var errorMessage = error.get("error_msg").asText();
@@ -68,7 +65,7 @@ public class VKClientImpl implements IVKClient {
                         if (triesLeft > 1) {
                             triesLeft--;
                             logger.log(Level.WARNING, "Request timeout, tries left: " + triesLeft);
-                            Thread.sleep(1000);
+                            TimeUnit.SECONDS.sleep(1);
 
                             continue;
                         }
@@ -88,51 +85,11 @@ public class VKClientImpl implements IVKClient {
             }
         }
 
-        /*
-        JsonNode response = null;
-
-        logger.log(Level.INFO, String.format("Request: %s", url));
-
-        do {
-            try {
-                var json = jsonUtils.readJsonFromUrl(url);
-
-                if (json.has("error")) {
-                    var error = json.get("error");
-                    var errorCode = error.get("error_code").asInt();
-                    var errorMessage = error.get("error_msg").asText();
-
-                    if (errorCode == 6) {
-                        if (!hasTried) {
-                            hasTried = true;
-                            logger.log(Level.WARNING, "Request timeout");
-                            Thread.sleep(1500);
-                            continue;
-                        } else {
-                            throw VKExceptionFactory.requestTimeout(url);
-                        }
-                    } else {
-                        throw VKExceptionFactory.responseHasErrors(url, errorMessage);
-                    }
-                }
-
-                flag = false;
-
-                response = json;
-            } catch (IOException | InterruptedException e) {
-                throw VKExceptionFactory.failedToReadJson(e.getMessage());
-            }
-        }
-        while (flag);
-
-         */
-
-
         return response;
     }
 
 
-    public AccessToken retrieveToken(String code) throws BusinessException {
+    public VKAccessToken retrieveToken(String code) throws BusinessException {
         var authUrl = accessTokenUri +
                 "?client_id=" + this.appId +
                 "&client_secret=" + this.clientSecret +
@@ -147,9 +104,9 @@ public class VKClientImpl implements IVKClient {
             var accessToken = response.get("access_token").asText();
             var userId = response.get("user_id").asInt();
 
-            var authToken = new AccessToken(createdOn, expiresIn, accessToken, userId);
+            var authToken = new VKAccessToken(createdOn, expiresIn, accessToken, userId);
 
-            logger.log(Level.INFO, String.format("Успешно получен токен пользователя: %s", this.accessToken));
+            logger.log(Level.INFO, String.format("Успешно получен токен пользователя ВК: %s", this.accessToken));
 
             return authToken;
         } catch (VKException err) {
@@ -157,8 +114,8 @@ public class VKClientImpl implements IVKClient {
         }
     }
 
-    public List<VKUser> getUserData(List<Integer> userIds) throws VKException {
-        var result = new ArrayList<VKUser>();
+    public List<User> getUserData(List<Integer> userIds) throws VKException {
+        var result = new ArrayList<User>();
         var ids = userIds.stream().map(String::valueOf).collect(Collectors.joining(","));
         var url = apiMethodUri + "/users.get" +
                 "?v=" + version +
@@ -181,9 +138,9 @@ public class VKClientImpl implements IVKClient {
                 continue;
             }
 
-            var vkUser = new VKUser(item);
+            var user = User.parseResponse(item);
 
-            result.add(vkUser);
+            result.add(user);
         }
 
         return result;

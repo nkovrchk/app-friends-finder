@@ -1,29 +1,38 @@
 package com.friendsfinder.app.model.entity;
 
 import org.springframework.data.annotation.*;
+import org.springframework.data.annotation.Version;
 
-import javax.persistence.MappedSuperclass;
+import javax.persistence.*;
+import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Date;
 
 @MappedSuperclass
 public class BaseEntity {
-    @Version
-    private Integer version;
-
+    /**
+     * Дата создания записи в таблице
+     */
     @CreatedDate
     @ReadOnlyProperty
-    private Instant createdOn;
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date createdOn;
 
-    @CreatedBy
-    @ReadOnlyProperty
-    private String createdBy;
-
+    /**
+     * Дата обновления записи в таблице
+     */
     @LastModifiedDate
     @ReadOnlyProperty
-    private Instant updatedOn;
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date updatedOn;
 
-    @LastModifiedBy
-    @ReadOnlyProperty
-    private String updatedBy;
+    @PrePersist
+    protected void preCreate() {
+        this.createdOn = Timestamp.from(Instant.now());
+    }
 
+    @PreUpdate
+    protected void preUpdate () {
+        this.updatedOn = Timestamp.from(Instant.now());
+    }
 }
