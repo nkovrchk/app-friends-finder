@@ -1,7 +1,7 @@
 package com.friendsfinder.app.mapper;
 
 import com.friendsfinder.app.controller.dto.response.NodeDto;
-import com.friendsfinder.app.model.Graph;
+import com.friendsfinder.app.model.UserGraph;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -9,20 +9,20 @@ import java.util.List;
 
 @Service
 public class GraphMapper {
-    private Graph graph;
+    private UserGraph userGraph;
 
-    public NodeDto toNodeResponse (Graph graph){
-        this.graph = graph;
+    public NodeDto toNodeResponse (UserGraph userGraph){
+        this.userGraph = userGraph;
 
         var response = traverse();
 
-        this.graph = null;
+        this.userGraph = null;
 
         return response;
     }
 
     private NodeDto traverse (){
-        var root = NodeDto.getNodeDto(graph.getGraph().get(0).get(0).get(0));
+        var root = NodeDto.getNodeDto(userGraph.getGraph().get(0).get(0).get(0));
 
         var children = getChildren(1, 0, 0);
 
@@ -32,11 +32,11 @@ public class GraphMapper {
     }
 
     public List<NodeDto> getChildren (int graphDepth, int levelIndex, int childIndex) {
-        var width = graph.getWidth();
-        var depth = graph.getDepth();
+        var width = userGraph.getWidth();
+        var depth = userGraph.getDepth();
 
         var pos = width * levelIndex + childIndex;
-        var tuple = graph.getGraph().get(graphDepth).get(pos);
+        var tuple = userGraph.getGraph().get(graphDepth).get(pos);
 
         if(tuple == null)
             return null;

@@ -1,11 +1,11 @@
-package com.friendsfinder.app.model;
+package com.friendsfinder.app.service.vk.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Getter;
 
 import java.util.Date;
 
-public class AccessToken {
+public class VKAccessToken {
     @Getter
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd@HH:mm:ss.SSSZ")
     private Date createdOn;
@@ -16,11 +16,11 @@ public class AccessToken {
     @Getter
     private int userId;
 
-    public AccessToken(){
+    public VKAccessToken(){
         super();
     }
 
-    public AccessToken(Date createdOn, int expiresIn, String token, int userId){
+    public VKAccessToken(Date createdOn, int expiresIn, String token, int userId){
         this.createdOn = createdOn;
         this.expiresIn = expiresIn;
         this.token = token;

@@ -1,7 +1,6 @@
 package com.friendsfinder.app.repository;
 
-import com.friendsfinder.app.model.entity.UserGraph;
-import org.springframework.data.repository.CrudRepository;
+import com.friendsfinder.app.model.entity.Graph;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface GraphRepository extends CrudRepository<UserGraph, Long> {
-}
+public interface GraphRepository extends JpaRepository<Graph, Integer> { }

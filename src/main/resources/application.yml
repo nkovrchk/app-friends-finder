@@ -17,4 +17,4 @@ spring:
     jdbc:
       initialize-schema: always
     store-type: jdbc
-    timeout: 900
+    timeout: 600

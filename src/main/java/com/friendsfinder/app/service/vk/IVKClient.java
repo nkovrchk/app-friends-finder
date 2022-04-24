@@ -2,8 +2,8 @@ package com.friendsfinder.app.service.vk;
 
 import com.friendsfinder.app.exception.BusinessException;
 import com.friendsfinder.app.exception.VKException;
-import com.friendsfinder.app.model.AccessToken;
-import com.friendsfinder.app.service.vk.dto.VKUser;
+import com.friendsfinder.app.service.vk.dto.VKAccessToken;
+import com.friendsfinder.app.model.User;
 
 import java.util.List;
 
@@ -15,14 +15,14 @@ public interface IVKClient {
      * Устанавливает токен доступа
      * @param token Access token
      */
-    void setAccessToken (AccessToken token);
+    void setAccessToken (String token);
 
     /**
      * Получает токен социальной сети
      * @param code Код доступа
      * @return Токен
      */
-    AccessToken retrieveToken(String code) throws BusinessException;
+    VKAccessToken retrieveToken(String code) throws BusinessException;
 
     /**
      * @param userId ID пользователя
@@ -35,19 +35,17 @@ public interface IVKClient {
      * @return Данные пользователя
      * @throws VKException Не удалось получить данные пользователя
      */
-    List<VKUser> getUserData (List<Integer> userIds) throws VKException;
+    List<User> getUserData (List<Integer> userIds) throws VKException;
 
     /**
      * @param ownerId ID владельца стены
      * @return Список постов на стене
-     * @throws VKException Не удалось получить стену пользователя
      */
-    List<String> getUserWall (int ownerId) throws VKException;
+    List<String> getUserWall (int ownerId);
 
     /**
      * @param userId ID пользователя
      * @return Список с информацией о группах пользователя
-     * @throws VKException Не удалось получить информацию о группах пользователя
      */
-    List<String> getUserGroups (int userId) throws VKException;
+    List<String> getUserGroups (int userId);
 }
