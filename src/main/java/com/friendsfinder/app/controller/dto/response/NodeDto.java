@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.friendsfinder.app.model.Node;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -18,12 +19,17 @@ public class NodeDto {
     public static class NodeDtoAttributes {
         private String id;
 
-        private boolean isMatch;
+        private boolean isMatched = false;
 
-        private boolean isLinked;
+        private boolean isLinked = false;
 
         private String photo;
 
+        private ArrayList<String> info = new ArrayList<>();
+
+        private ArrayList<String> wall = new ArrayList<>();
+
+        private ArrayList<String> groups = new ArrayList<>();
     }
 
     public static NodeDto getNodeDto (Node node) {
@@ -39,6 +45,14 @@ public class NodeDto {
         nodeDto.setAttributes(attributes);
 
         return nodeDto;
+    }
+
+    public void setIsMatched (boolean value){
+        this.attributes.setMatched(value);
+    }
+
+    public void setIsLinked (boolean value){
+        this.attributes.setLinked(value);
     }
 
 

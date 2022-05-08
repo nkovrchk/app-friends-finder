@@ -8,7 +8,6 @@ import com.friendsfinder.app.exception.factory.VKExceptionFactory;
 import com.friendsfinder.app.model.User;
 import com.friendsfinder.app.service.vk.dto.VKAccessToken;
 import com.friendsfinder.app.utils.JsonUtils;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -188,7 +187,7 @@ public class VKClientImpl implements IVKClient {
 
                     for (var copy : copyHistory) {
                         var repost = copy.get("text").asText();
-                        if (!repost.isEmpty()) wall.add(repost);
+                        if (!(copy.has("is_deleted") && copy.get("is_deleted").asBoolean()) && !repost.isEmpty()) wall.add(repost);
                     }
                 }
             }

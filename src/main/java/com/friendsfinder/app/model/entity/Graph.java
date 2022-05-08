@@ -25,7 +25,7 @@ public class Graph extends BaseEntity {
     @Setter
     @Column(name = "user_id")
     private Integer userId;
-
+    
     @Getter
     @Setter
     @Type(type = "jsonb")

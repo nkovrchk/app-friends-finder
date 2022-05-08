@@ -1,16 +1,14 @@
 package com.friendsfinder.app.service.graph;
 
-import com.friendsfinder.app.controller.dto.request.SearchPersonRequest;
+import com.friendsfinder.app.controller.dto.request.SearchRequest;
 import com.friendsfinder.app.exception.VKException;
-import com.friendsfinder.app.model.Node;
-import com.friendsfinder.app.model.UserGraph;
-import com.friendsfinder.app.model.WordForms;
+import com.friendsfinder.app.model.*;
 import com.friendsfinder.app.model.entity.Graph;
 import com.friendsfinder.app.repository.GraphRepository;
 import com.friendsfinder.app.service.morphology.MorphologyServiceImpl;
 import com.friendsfinder.app.service.session.SessionServiceImpl;
 import com.friendsfinder.app.service.vk.VKClientImpl;
-import com.friendsfinder.app.model.User;
+import com.friendsfinder.app.utils.MapperUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.springframework.stereotype.Service;
@@ -27,7 +25,8 @@ public class GraphServiceImpl implements IGraphService {
     private final GraphRepository graphRepository;
 
     private final SessionServiceImpl sessionService;
-    private final Set<Integer> uniqueIds = new HashSet<>();
+
+    private final MapperUtils mapperUtils;
 
     @Setter
     private int depth;
@@ -35,7 +34,63 @@ public class GraphServiceImpl implements IGraphService {
     @Setter
     private int width;
 
-    public ArrayList<ArrayList<Node>> getRoot () throws VKException {
+    private final Set<Integer> uniqueIds = new HashSet<>();
+
+    private final ArrayList<MatchData> matches = new ArrayList<>();
+
+    @Setter
+    private ArrayList<ArrayList<String>> keyWords = new ArrayList<>();
+
+    public UserGraph build(SearchRequest params) throws VKException {
+        var graph = new ArrayList<ArrayList<ArrayList<Node>>>();
+
+        this.setKeyWords(mapperUtils.mapKeyWords(params.getKeyWords()));
+
+        graph.add(getRoot());
+
+        this.setWidth(params.getWidth());
+        this.setDepth(params.getDepth() - 1);
+
+        for (int i = 1; i <= depth; i++) {
+            var listIds = getParentIds(graph.get(i - 1));
+
+            var level = getLevel(listIds, i);
+            graph.add(level);
+        }
+
+        var userGraph = new UserGraph();
+
+        userGraph.setGraph(graph);
+        userGraph.setWidth(width);
+        userGraph.setDepth(depth);
+        userGraph.setMatchData(mapperUtils.mapMatchData(matches, 5));
+        userGraph.setUniqueIds(uniqueIds);
+
+        clearData();
+        saveToDb(userGraph);
+
+        return userGraph;
+    }
+
+    private void clearData() {
+        uniqueIds.clear();
+        keyWords.clear();
+        matches.clear();
+
+        this.setWidth(0);
+        this.setDepth(0);
+    }
+
+    private Map<Integer, MatchData> mapMatchData(List<MatchData> matches) {
+        var matchMap = new HashMap<Integer, MatchData>();
+
+        matches.sort(Comparator.comparing(MatchData::getTotal).reversed());
+        matches.stream().limit(5).forEach(match -> matchMap.put(match.getUserId(), match));
+
+        return matchMap;
+    }
+
+    private ArrayList<ArrayList<Node>> getRoot() throws VKException {
         var tuple = new ArrayList<Node>();
         var level = new ArrayList<ArrayList<Node>>();
         var ids = new ArrayList<Integer>();
@@ -59,46 +114,22 @@ public class GraphServiceImpl implements IGraphService {
         return level;
     }
 
-    public UserGraph build (SearchPersonRequest params) throws VKException {
-        var graph = new ArrayList<ArrayList<ArrayList<Node>>>();
+    private void saveToDb(UserGraph userGraph) {
+        var graph = new Graph();
 
-        graph.add(getRoot());
+        graph.setUserId(sessionService.getUserId());
+        graph.setNodes(userGraph.getGraph());
+        graph.setUniqueIds(userGraph.getUniqueIds().stream().toList());
 
-        this.setWidth(params.getWidth());
-        this.setDepth(params.getDepth() - 1);
-
-        for(int i = 1; i <= depth; i++){
-            var listIds =  getParentIds(graph.get(i - 1));
-
-            var level = getLevel(listIds);
-            graph.add(level);
-        }
-
-        var userGraph = new UserGraph(graph, width, depth);
-
-        saveToDb(userGraph);
-
-        uniqueIds.clear();
-
-        return userGraph;
+        graphRepository.save(graph);
     }
 
-    private void saveToDb (UserGraph graph){
-        var userGraph = new Graph();
-
-        userGraph.setUserId(sessionService.getUserId());
-        userGraph.setNodes(graph.getGraph());
-        userGraph.setUniqueIds(uniqueIds.stream().toList());
-
-        graphRepository.save(userGraph);
-    }
-
-    private ArrayList<Integer> getParentIds (ArrayList<ArrayList<Node>> level){
+    private ArrayList<Integer> getParentIds(ArrayList<ArrayList<Node>> level) {
         var parentIds = new ArrayList<Integer>();
 
         level.forEach(tuple -> {
-            if(tuple == null)
-                for(var i = 0; i < width; i++) parentIds.add(null);
+            if (tuple == null)
+                for (var i = 0; i < width; i++) parentIds.add(null);
 
             else
                 parentIds.addAll(tuple.stream().map(node -> node != null ? node.getUserId() : null).toList());
@@ -107,27 +138,36 @@ public class GraphServiceImpl implements IGraphService {
         return parentIds;
     }
 
-    private void refreshWordForms (Node node){
+    private void refreshWordForms(Node node) {
         var wall = node.getUser().getWall();
-        var groups  = node.getUser().getGroups();
+        var groups = node.getUser().getGroups();
 
-        var wallWords = new ArrayList<String>();
+        var info = new ArrayList<String>();
 
-        wall.forEach(post -> {
-            var formattedPost = morphologyService.formatSentence(post);
-            var words = morphologyService.splitSentence(formattedPost);
+        var about = node.getUser().getAbout();
+        var city = node.getUser().getCity();
+        var career = node.getUser().getCareer();
+        var interests = node.getUser().getInterests();
 
-            wallWords.addAll(words);
-        });
+        info.add(about);
+        info.add(city);
+        info.add(career);
+        info.add(interests);
+
+        var wallWords = morphologyService.processText(wall);
+        var groupWords = morphologyService.processText(groups);
+        var infoWords = morphologyService.processText(info);
 
         var wordForms = new WordForms();
 
         wordForms.setWall(wallWords);
+        wordForms.setGroups(groupWords);
+        wordForms.setInfo(infoWords);
 
         node.setWordForms(wordForms);
     }
 
-    private Node createNode(User user) {
+    private Node createNode(User user, int depth) {
         var userId = user.getId();
 
         var wall = vkClient.getUserWall(userId);
@@ -143,25 +183,31 @@ public class GraphServiceImpl implements IGraphService {
         return node;
     }
 
-    private ArrayList<Node> getChildrenNodes (Integer parentId) {
-        if(parentId == null)
+    private ArrayList<Node> getChildrenNodes(Integer parentId, Integer depth) {
+        if (parentId == null)
             return null;
 
         var tuple = new ArrayList<Node>();
 
         var childrenIds = getFriendsIds(parentId, width);
 
-        if(childrenIds.size() == 0)
+        if (childrenIds.size() == 0)
             return null;
 
-        try{
+        try {
             var users = vkClient.getUserData(childrenIds);
 
             var nodes = users.stream()
                     .map(user -> {
-                        var node = createNode(user);
+                        var node = createNode(user, depth);
 
                         refreshWordForms(node);
+
+                        var match = getMatchData(1.0 / depth, node.getWordForms());
+
+                        match.setUserId(user.getId());
+
+                        matches.add(match);
 
                         return node;
                     })
@@ -170,35 +216,34 @@ public class GraphServiceImpl implements IGraphService {
             var arrayNodes = new ArrayList<>(nodes);
 
             tuple.addAll(arrayNodes);
-        }
-        catch (VKException ex){
+        } catch (VKException ex) {
             return null;
         }
 
         var difference = width - tuple.size();
 
-        for(var i = 0; i < difference; i++) tuple.add(null);
+        for (var i = 0; i < difference; i++) tuple.add(null);
 
         return tuple;
     }
 
-    private ArrayList<ArrayList<Node>> getLevel (ArrayList<Integer> ids) {
+    private ArrayList<ArrayList<Node>> getLevel(ArrayList<Integer> ids, Integer depth) {
         var level = new ArrayList<ArrayList<Node>>();
 
         ids.forEach(parentId -> {
-            var children = getChildrenNodes(parentId);
+            var children = getChildrenNodes(parentId, depth);
 
             level.add(children);
         });
 
         var difference = ids.size() - level.size();
 
-        for(var i = 0; i < difference; i++) level.add(null);
+        for (var i = 0; i < difference; i++) level.add(null);
 
         return level;
     }
 
-    private ArrayList<Integer> getFriendsIds (int userId, int count) {
+    private ArrayList<Integer> getFriendsIds(int userId, int count) {
         var response = vkClient.getFriendsIds(userId);
 
         var filteredIds = response
@@ -211,5 +256,39 @@ public class GraphServiceImpl implements IGraphService {
         uniqueIds.addAll(result);
 
         return new ArrayList<>(result);
+    }
+
+    private MatchData getMatchData(Double kDepth, WordForms forms) {
+        var words = List.copyOf(keyWords);
+
+        var infoList = new ArrayList<>(words);
+        var infoSection = getMatchSection(1.75, forms.getInfo(), infoList);
+
+        var wallList = new ArrayList<>(infoList.stream().filter(word -> !infoSection.getW().contains(word.get(0))).toList());
+        var wallSection = getMatchSection(1.5, forms.getWall(), wallList);
+
+        var groupList = new ArrayList<>(wallList.stream().filter(word -> !wallSection.getW().contains(word.get(0))).toList());
+        var groupSection = getMatchSection(1.25, forms.getGroups(), groupList);
+
+        var matchData = new MatchData();
+        var matchTotal = kDepth * (infoSection.getR() + wallSection.getR() + groupSection.getR());
+
+        matchData.setInfo(infoSection);
+        matchData.setWall(wallSection);
+        matchData.setGroups(groupSection);
+        matchData.setTotal(matchTotal);
+
+        return matchData;
+    }
+
+    private MatchData.MatchSection getMatchSection(Double kSection, List<String> forms, ArrayList<ArrayList<String>> words) {
+        var section = new MatchData.MatchSection();
+        var filteredWords = words.stream().filter(word -> forms.contains(word.get(1))).toList();
+        var total = filteredWords.stream().map(word -> 1.0 / (1 + keyWords.indexOf(word))).reduce(0.0, Double::sum);
+
+        section.setW(new ArrayList<>(filteredWords.stream().map(word -> word.get(0)).toList()));
+        section.setR(kSection * total);
+
+        return section;
     }
 }
