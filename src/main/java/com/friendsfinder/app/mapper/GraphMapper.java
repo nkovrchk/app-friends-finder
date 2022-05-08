@@ -1,11 +1,13 @@
 package com.friendsfinder.app.mapper;
 
 import com.friendsfinder.app.controller.dto.response.NodeDto;
+import com.friendsfinder.app.model.MatchData;
 import com.friendsfinder.app.model.UserGraph;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class GraphMapper {
@@ -26,6 +28,9 @@ public class GraphMapper {
 
         var children = getChildren(1, 0, 0);
 
+        var isLinked = children.stream().anyMatch(ch -> ch.getAttributes().isLinked() || ch.getAttributes().isMatched());
+
+        root.setIsLinked(isLinked);
         root.setChildren(children);
 
         return root;
@@ -50,7 +55,23 @@ public class GraphMapper {
                 continue;
 
             var nodeDto = NodeDto.getNodeDto(node);
+            var isMatch = userGraph.getMatchData().get(node.getUserId());
+
             var children = graphDepth < depth ? getChildren(graphDepth + 1, pos, i) : null;
+
+            if(isMatch != null){
+                nodeDto.setIsMatched(true);
+
+                var attributes = nodeDto.getAttributes();
+
+                attributes.setInfo(isMatch.getInfo().getW());
+                attributes.setWall(isMatch.getWall().getW());
+                attributes.setGroups(isMatch.getGroups().getW());
+            }
+            if(children != null) {
+                var isLinked = children.stream().anyMatch(ch -> ch.getAttributes().isLinked() || ch.getAttributes().isMatched());
+                nodeDto.setIsLinked(isLinked);
+            }
 
             nodeDto.setChildren(children);
 

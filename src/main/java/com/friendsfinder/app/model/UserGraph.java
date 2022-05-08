@@ -3,6 +3,8 @@ package com.friendsfinder.app.model;
 import lombok.Data;
 
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.Set;
 
 @Data
 public class UserGraph {
@@ -12,9 +14,7 @@ public class UserGraph {
 
     private int depth;
 
-    public UserGraph(ArrayList<ArrayList<ArrayList<Node>>> graph, int width, int depth){
-        this.graph = graph;
-        this.width = width;
-        this.depth = depth;
-    }
+    private Map<Integer, MatchData> matchData;
+
+    private Set<Integer> uniqueIds;
 }
