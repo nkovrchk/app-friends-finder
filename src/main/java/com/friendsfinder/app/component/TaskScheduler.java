@@ -20,16 +20,41 @@ public class TaskScheduler {
     private final Logger logger = Logger.getLogger(TaskScheduler.class.getName());
 
     @Scheduled(cron = "0 0 0 * * *")
-    public void deleteOldGraphs () {
+    public void deleteOldGraphs() {
         logger.log(Level.INFO, "Выполняется удаление неактуальных графов");
         ///graphRepository.deleteOldGraphs();
     }
 
     @Scheduled(cron = "0 * * * * *")
-    public void doDailyUpdate (){
+    public void doDailyUpdate() {
         logger.log(Level.INFO, "Выполняется обновление данных в вершинах графа");
-        //var graphs = graphRepository.getAllActiveGraphs();
 
-       // if(graphs.size() == 0) return;
+        /*
+        var graphs = graphRepository.getAllActiveGraphs();
+
+        if (graphs.size() == 0) return;
+
+        var iterator = graphs.iterator();
+
+        graphs.forEach(graph -> {
+
+            graph.getNodes().forEach(level -> {
+                level.forEach(nodes -> {
+                    if (nodes == null) return;
+
+                    nodes.forEach(node -> {
+                        if (node == null) return;
+
+                        var id = node.getUserId();
+
+
+                    });
+                });
+            });
+        });
+
+        graphRepository.saveAll(graphs);
+
+         */
     }
 }

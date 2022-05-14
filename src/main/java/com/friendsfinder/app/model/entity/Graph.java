@@ -15,10 +15,7 @@ import java.util.List;
 
 @Entity(name = "Graph")
 @Table(name = "graph")
-@TypeDefs({
-        @TypeDef(name = "json", typeClass = JsonStringType.class),
-        @TypeDef(name = "jsonb", typeClass = JsonBinaryType.class)
-})
+@TypeDef(name = "jsonb", typeClass = JsonBinaryType.class)
 public class Graph extends BaseEntity {
     @Id
     @Getter
@@ -29,12 +26,20 @@ public class Graph extends BaseEntity {
     @Getter
     @Setter
     @Type(type = "jsonb")
-    @Column(columnDefinition = "jsonb")
+    @Column(columnDefinition = "json")
     private ArrayList<ArrayList<ArrayList<Node>>> nodes;
 
     @Getter
     @Setter
     @Type(type = "jsonb")
-    @Column(name = "unique_ids", columnDefinition = "jsonb")
+    @Column(name = "unique_ids", columnDefinition = "json")
     private List<Integer> uniqueIds;
+
+    @Getter
+    @Setter
+    private Integer width;
+
+    @Getter
+    @Setter
+    private Integer depth;
 }

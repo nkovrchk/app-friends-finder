@@ -35,13 +35,13 @@ public class MorphologyServiceImpl implements IMorphologyService {
     }
 
     public List<String> processText (List<String> words) {
-        var streams = words.stream().map(word -> {
+        return words.stream().map(word -> {
             var formatted = formatSentence(word);
             var sentence = splitSentence(formatted);
 
             return getWordForms(sentence);
-        });
-
-        return streams.flatMap(List::stream).toList();
+        })
+                .flatMap(List::stream)
+                .toList();
     }
 }
