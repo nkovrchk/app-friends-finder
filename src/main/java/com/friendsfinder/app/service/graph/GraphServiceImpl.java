@@ -1,7 +1,6 @@
 package com.friendsfinder.app.service.graph;
 
 import com.friendsfinder.app.controller.dto.request.SearchRequest;
-import com.friendsfinder.app.exception.VKException;
 import com.friendsfinder.app.model.*;
 import com.friendsfinder.app.model.entity.Graph;
 import com.friendsfinder.app.repository.GraphRepository;
@@ -10,16 +9,16 @@ import com.friendsfinder.app.service.modification.ModificationServiceImpl;
 import com.friendsfinder.app.service.morphology.MorphologyServiceImpl;
 import com.friendsfinder.app.service.session.SessionServiceImpl;
 import com.friendsfinder.app.service.vk.VKClientImpl;
-import com.friendsfinder.app.utils.MapperUtils;
+import com.friendsfinder.app.utils.MappingUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -34,7 +33,7 @@ public class GraphServiceImpl implements IGraphService {
 
     private final SessionServiceImpl sessionService;
 
-    private final MapperUtils mapperUtils;
+    private final MappingUtils mappingUtils;
 
     private final ModificationServiceImpl modificationService;
 
@@ -55,17 +54,17 @@ public class GraphServiceImpl implements IGraphService {
     @Setter
     private ArrayList<ArrayList<String>> keyWords = new ArrayList<>();
 
-    public UserGraph getGraph(SearchRequest params) throws VKException {
+    public UserGraph getGraph(SearchRequest params) {
         UserGraph userGraph;
 
         var graph = graphRepository.findById(sessionService.getUserId());
 
-        if(graph.isEmpty())
+        if (graph.isEmpty())
             userGraph = build(params);
-        else{
-            this.setKeyWords(mapperUtils.mapKeyWords(params.getKeyWords()));
+        else {
+            this.setKeyWords(mappingUtils.mapKeyWords(params.getKeyWords()));
             this.setWidth(params.getWidth());
-            this.setDepth(params.getDepth() - 1);
+            this.setDepth(params.getDepth());
 
             var dbGraph = graph.get();
 
@@ -76,16 +75,16 @@ public class GraphServiceImpl implements IGraphService {
         return userGraph;
     }
 
-    public UserGraph build(SearchRequest params) throws VKException {
+    public UserGraph build(SearchRequest params) {
         var startDate = Instant.now();
         var graph = new ArrayList<ArrayList<ArrayList<Node>>>();
 
-        this.setKeyWords(mapperUtils.mapKeyWords(params.getKeyWords()));
+        this.setKeyWords(mappingUtils.mapKeyWords(params.getKeyWords()));
 
         graph.add(getRoot());
 
         this.setWidth(params.getWidth());
-        this.setDepth(params.getDepth() - 1);
+        this.setDepth(params.getDepth());
 
         for (int i = 1; i <= depth; i++) {
             var listIds = getParentIds(graph.get(i - 1));
@@ -103,19 +102,13 @@ public class GraphServiceImpl implements IGraphService {
         userGraph.setGraph(graph);
         userGraph.setWidth(width);
         userGraph.setDepth(depth);
-        userGraph.setMatchData(mapperUtils.mapMatchData(matches, 5));
+        userGraph.setMatchData(mappingUtils.mapMatchData(matches));
         userGraph.setUniqueIds(uniqueIds);
 
-        clearData();
         saveToDb(userGraph);
+        clearData();
 
         return userGraph;
-    }
-
-    public UserGraph deleteNodes (ArrayList<ArrayList<ArrayList<Node>>> oldGraph){
-        var splicedGraph = modificationService.proceed(oldGraph, 4, 5, 2, 5, keyWords);
-
-        return splicedGraph;
     }
 
     private void clearData() {
@@ -127,7 +120,7 @@ public class GraphServiceImpl implements IGraphService {
         this.setDepth(0);
     }
 
-    private ArrayList<ArrayList<Node>> getRoot() throws VKException {
+    private ArrayList<ArrayList<Node>> getRoot() {
         var tuple = new ArrayList<Node>();
         var level = new ArrayList<ArrayList<Node>>();
         var ids = new ArrayList<Integer>();
@@ -152,13 +145,28 @@ public class GraphServiceImpl implements IGraphService {
     }
 
     private void saveToDb(UserGraph userGraph) {
-        var graph = new Graph();
+        Graph graph;
 
-        graph.setUserId(sessionService.getUserId());
-        graph.setNodes(userGraph.getGraph());
-        graph.setUniqueIds(userGraph.getUniqueIds().stream().toList());
-        graph.setWidth(userGraph.getWidth());
-        graph.setDepth(userGraph.getDepth() + 1);
+        var userId = sessionService.getUserId();
+        var nodes = userGraph.getGraph();
+        var uniqueIds = userGraph.getUniqueIds().stream().toList();
+        var width = userGraph.getWidth();
+        var depth = userGraph.getDepth();
+
+        var existingGraph = graphRepository.findById(userId);
+
+        if (existingGraph.isEmpty()) {
+            graph = new Graph();
+
+            graph.setUserId(userId);
+        } else {
+            graph = existingGraph.get();
+        }
+
+        graph.setNodes(nodes);
+        graph.setUniqueIds(uniqueIds);
+        graph.setWidth(width);
+        graph.setDepth(depth);
 
         graphRepository.save(graph);
     }
@@ -223,41 +231,33 @@ public class GraphServiceImpl implements IGraphService {
     }
 
     private ArrayList<Node> getChildrenNodes(Integer parentId, Integer depth) {
-        if (parentId == null)
-            return null;
-
-        var tuple = new ArrayList<Node>();
+        if (parentId == null) return null;
 
         var childrenIds = getFriendsIds(parentId, width);
 
-        if (childrenIds.size() == 0)
-            return null;
+        if (childrenIds.size() == 0) return null;
 
-        try {
-            var users = vkClient.getUserData(childrenIds);
+        var users = vkClient.getUserData(childrenIds);
 
-            var nodes = users.stream()
-                    .map(user -> {
-                        var node = createNode(user, depth);
+        if (users.size() == 0) return null;
 
-                        node.setParentId(parentId);
-                        refreshWordForms(node);
+        var nodes = users.stream()
+                .map(user -> {
+                    var node = createNode(user, depth);
 
-                        var match = matchService.getMatchData(1.0 / depth, node, keyWords);
+                    node.setParentId(parentId);
+                    refreshWordForms(node);
 
-                        match.setUserId(user.getId());
-                        matches.add(match);
+                    var match = matchService.getMatchData(1.0 / depth, node, keyWords);
 
-                        return node;
-                    })
-                    .toList();
+                    match.setUserId(user.getId());
+                    matches.add(match);
 
-            var arrayNodes = new ArrayList<>(nodes);
+                    return node;
+                })
+                .toList();
 
-            tuple.addAll(arrayNodes);
-        } catch (VKException ex) {
-            return null;
-        }
+        var tuple = new ArrayList<>(new ArrayList<>(nodes));
 
         var difference = width - tuple.size();
 

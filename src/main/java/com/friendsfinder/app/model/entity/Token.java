@@ -3,17 +3,14 @@ package com.friendsfinder.app.model.entity;
 import lombok.Getter;
 import lombok.Setter;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.util.Date;
 
 @Entity(name = "Token")
 @Table(name = "token")
 public class Token extends BaseEntity {
     @Id
-    @Column(name = "user_id")
+    @Column(name = "token_user_id")
     @Getter
     @Setter
     private Integer userId;
@@ -32,5 +29,4 @@ public class Token extends BaseEntity {
     @Getter
     @Setter
     private Date creationDate;
-
 }

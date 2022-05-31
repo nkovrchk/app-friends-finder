@@ -2,12 +2,12 @@ package com.friendsfinder.app.model.entity;
 
 import com.friendsfinder.app.model.Node;
 import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
-import com.vladmihalcea.hibernate.type.json.JsonStringType;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
-import org.hibernate.annotations.TypeDefs;
 
 import javax.persistence.*;
 import java.util.ArrayList;
@@ -42,4 +42,13 @@ public class Graph extends BaseEntity {
     @Getter
     @Setter
     private Integer depth;
+
+    @OneToOne
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "user_id",
+            referencedColumnName = "token_user_id",
+            insertable = false, updatable = false,
+            foreignKey = @javax.persistence
+                    .ForeignKey(value = ConstraintMode.NO_CONSTRAINT))
+    private Token token;
 }

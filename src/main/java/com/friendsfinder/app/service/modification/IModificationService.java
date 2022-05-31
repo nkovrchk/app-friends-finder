@@ -34,19 +34,4 @@ import java.util.ArrayList;
  * Нужно возвращать два графа: один идет в БД, второй на клиент
  */
 public interface IModificationService {
-    /**
-     * Удаляет из уровня графа лишние вершины и возвращает новый уровень
-     * @param level Старый уровень
-     * @param depth Глубина уровня
-     * @return Новый урезанный уровень
-     */
-    ArrayList<ArrayList<Node>> spliceLevel (ArrayList<ArrayList<Node>> level, Integer depth);
-
-    /**
-     * Удаляет листву графа и возвращает новый граф
-     * @param graph Старый граф
-     * @param count Кол-во уровней
-     * @return Новый урезанный граф
-     */
-    ArrayList<ArrayList<ArrayList<Node>>> spliceGraph(ArrayList<ArrayList<ArrayList<Node>>> graph, Integer count);
 }

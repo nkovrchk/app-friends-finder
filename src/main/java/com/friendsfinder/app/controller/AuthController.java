@@ -1,10 +1,10 @@
 package com.friendsfinder.app.controller;
 
 import com.friendsfinder.app.exception.BusinessException;
-import com.friendsfinder.app.exception.JsonException;
 import com.friendsfinder.app.service.session.SessionServiceImpl;
 import com.friendsfinder.app.service.vk.VKClientImpl;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -22,7 +22,8 @@ public class AuthController {
 
     private final VKClientImpl vkClient;
 
-    private final String clientUrl = "http://localhost:8080";
+    @Value("${client.url}")
+    private String clientUrl;
 
     private void redirect(HttpServletResponse response, String url) {
         response.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY);
@@ -59,7 +60,7 @@ public class AuthController {
         if (!session.isNew())
             isValid = sessionService.getValidToken() != null;
 
-        return new ResponseEntity<>(isValid ? HttpStatus.OK : HttpStatus.FORBIDDEN);
+        return new ResponseEntity<>(isValid ? HttpStatus.OK : HttpStatus.UNAUTHORIZED);
     }
 
     @PostMapping("/logout")

@@ -9,10 +9,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class NodeServiceImpl {
+public class NodeServiceImpl implements INodeService {
     private final VKClientImpl vkClient;
 
     private final MorphologyServiceImpl morphologyService;
@@ -31,10 +32,12 @@ public class NodeServiceImpl {
         node.setUser(user);
         node.setParentId(parentId);
 
+        updateWordForms(node);
+
         return node;
     }
 
-    public void getWordForms (Node node){
+    public void updateWordForms(Node node){
         var wall = node.getUser().getWall();
         var groups = node.getUser().getGroups();
 
@@ -61,5 +64,22 @@ public class NodeServiceImpl {
         wordForms.setInfo(infoWords);
 
         node.setWordForms(wordForms);
+    }
+
+    public void updateNodeData (Node node){
+        var userId = node.getUserId();
+
+        var wall = vkClient.getUserWall(userId);
+        var groups = vkClient.getUserGroups(userId);
+        var users = vkClient.getUserData(List.of(userId));
+
+        if(users.size() > 0){
+            var user = users.get(0);
+
+            node.setUser(user);
+        }
+
+        node.getUser().setWall(wall);
+        node.getUser().setGroups(groups);
     }
 }
