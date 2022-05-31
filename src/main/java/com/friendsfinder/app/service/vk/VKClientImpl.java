@@ -9,27 +9,33 @@ import com.friendsfinder.app.model.User;
 import com.friendsfinder.app.service.vk.dto.VKAccessToken;
 import com.friendsfinder.app.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class VKClientImpl implements IVKClient {
-    private final String appId = "8044534";
-    private final String clientSecret = "KSEH55wukhHmHMyAgKSl";
-    private final String redirectUri = "http://localhost:8081/auth/token";
+    @Value("${vk.client-id}")
+    private String appId;
+    @Value("${vk.client-secret}")
+    private String clientSecret;
+    @Value("${vk.redirect-uri}")
+    private String redirectUri;
+
+    private final String version = "5.131";
     private final String authUri = "https://oauth.vk.com/authorize";
     private final String accessTokenUri = "https://oauth.vk.com/access_token";
     private final String apiMethodUri = "https://api.vk.com/method";
-    private final String version = "5.131";
 
     private String accessToken;
 
@@ -51,11 +57,11 @@ public class VKClientImpl implements IVKClient {
         var triesLeft = 4;
         JsonNode response = null;
 
-        while(triesLeft > 0){
+        while (triesLeft > 0) {
             try {
                 var json = jsonUtils.readJsonFromUrl(url);
 
-                 if (json.has("error")) {
+                if (json.has("error")) {
                     var error = json.get("error");
                     var errorCode = error.get("error_code").asInt();
                     var errorMessage = error.get("error_msg").asText();
@@ -67,12 +73,10 @@ public class VKClientImpl implements IVKClient {
                             TimeUnit.SECONDS.sleep(1);
 
                             continue;
-                        }
-                        else {
+                        } else {
                             throw VKExceptionFactory.requestTimeout(url);
                         }
-                    }
-                    else {
+                    } else {
                         throw VKExceptionFactory.responseHasErrors(url, errorMessage);
                     }
                 }
@@ -113,7 +117,7 @@ public class VKClientImpl implements IVKClient {
         }
     }
 
-    public List<User> getUserData(List<Integer> userIds) throws VKException {
+    public List<User> getUserData(List<Integer> userIds) {
         var result = new ArrayList<User>();
         var ids = userIds.stream().map(String::valueOf).collect(Collectors.joining(","));
         var url = apiMethodUri + "/users.get" +
@@ -122,24 +126,27 @@ public class VKClientImpl implements IVKClient {
                 "&access_token=" + accessToken +
                 "&fields=about,career,interests,city,photo_200";
 
+        try {
+            var items = getData(url).get("response");
 
-        var items = getData(url).get("response");
+            if (!items.isArray())
+                return Collections.emptyList();
 
-        if (!items.isArray())
-            return result;
+            for (JsonNode item : items) {
+                var hasAccess = item.has("can_access_closed") && item.get("can_access_closed").asBoolean();
+                var isDeactivated = item.has("deactivated") && item.get("deactivated").asBoolean();
 
-        for (JsonNode item : items) {
-            var hasAccess = item.has("can_access_closed") && item.get("can_access_closed").asBoolean();
-            var isDeactivated = item.has("deactivated") && item.get("deactivated").asBoolean();
+                if (isDeactivated || !hasAccess) {
+                    logger.log(Level.WARNING, String.format("Пользователь ID: %s скрыл или заблокировал профиль", item.get("id")));
+                    continue;
+                }
 
-            if (isDeactivated || !hasAccess) {
-                logger.log(Level.WARNING, String.format("Пользователь ID: %s скрыл или заблокировал профиль", item.get("id")));
-                continue;
+                var user = User.parseResponse(item);
+
+                result.add(user);
             }
-
-            var user = User.parseResponse(item);
-
-            result.add(user);
+        } catch (VKException exception) {
+            return Collections.emptyList();
         }
 
         return result;
@@ -187,7 +194,8 @@ public class VKClientImpl implements IVKClient {
 
                     for (var copy : copyHistory) {
                         var repost = copy.get("text").asText();
-                        if (!(copy.has("is_deleted") && copy.get("is_deleted").asBoolean()) && !repost.isEmpty()) wall.add(repost);
+                        if (!(copy.has("is_deleted") && copy.get("is_deleted").asBoolean()) && !repost.isEmpty())
+                            wall.add(repost);
                     }
                 }
             }

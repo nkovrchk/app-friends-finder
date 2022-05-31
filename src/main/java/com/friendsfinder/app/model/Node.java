@@ -9,7 +9,7 @@ public class Node {
 
     private final int userId;
 
-    private int parent;
+    private int parentId;
 
     private User user;
 

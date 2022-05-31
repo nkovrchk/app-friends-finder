@@ -49,59 +49,6 @@ public class User {
 
     private String photo;
 
-    public static User parseJson (JsonNode json){
-        var user = new User();
-
-        var id = json.get("id").asInt();
-        var firstName = json.get("firstName").asText();
-        var lastName = json.get("lastName").asText();
-
-        var interests = json.get("interests").asText();
-        var about = json.get("about").asText();
-        var photo = json.get("photo").asText();
-        var city = json.get("city").asText();
-        var career = json.get("career").asText();
-
-        var wall = json.get("wall");
-
-        var posts = new ArrayList<String>();
-
-        if(wall != null && wall.isArray()){
-            for(JsonNode post : wall){
-                var parsedPost = post.asText();
-
-                posts.add(parsedPost);
-            }
-        }
-
-        var groups = json.get("groups");
-
-        var titles = new ArrayList<String>();
-
-        if(groups != null && groups.isArray()){
-            for(JsonNode group : groups){
-                var title = group.asText();
-
-                titles.add(title);
-            }
-        }
-
-        user.setId(id);
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
-
-        user.setInterests(interests);
-        user.setAbout(about);
-        user.setPhoto(photo);
-        user.setCareer(career);
-        user.setCity(city);
-
-        user.setWall(posts);
-        user.setGroups(titles);
-
-        return user;
-    }
-
     public static User parseResponse (JsonNode response){
         var user = new User();
 

@@ -18,7 +18,7 @@ public class VKController {
 
     @PostMapping("/graph")
     public NodeDto getGraph (@RequestBody SearchRequest searchRequest) throws VKException {
-        var graph = graphService.build(searchRequest);
+        var graph = graphService.getGraph(searchRequest);
 
         return graphMapper.toNodeResponse(graph);
     }

@@ -1,3 +1,17 @@
+vk:
+  client-id: '8044534'
+  client-secret: 'KSEH55wukhHmHMyAgKSl'
+  redirect-uri: 'http://localhost:8081/api/v1/auth/token'
+
+client:
+  url: 'http://localhost:8080'
+
+match:
+  limit: 5
+  k-about: 2.0
+  k-posts: 1.75
+  k-groups: 1.5
+
 server:
   port: 8081
 
@@ -17,4 +31,4 @@ spring:
     jdbc:
       initialize-schema: always
     store-type: jdbc
-    timeout: 600
+    timeout: 81600
