@@ -1,6 +1,6 @@
 # FriendsFinder — Сервер
 ## Требования
-* OpenJDK — версия 16 или выше
+* OpenJDK — версия 17 или выше
 * PostgreSQL
 
 ## Настройка БД
